@@ -14,49 +14,37 @@ import tempfile
 # Load environment variables
 load_dotenv()
 
-# Initialize Groq API key
 groq_api_key = os.getenv('GROQ_API_KEY')
 
-# Streamlit app title
 st.markdown("<h2 style='text-align: center;'>Aplikasi Rekomendasi Wisata & Q&A PDF</h2>", unsafe_allow_html=True)
 
 # Initialize Groq LLM
 llm = ChatGroq(groq_api_key=groq_api_key, model_name="Llama3-8b-8192")
 
-# Prompt template for PDF Q&A
-pdf_prompt = ChatPromptTemplate.from_template(
-    """
+pdf_prompt = ChatPromptTemplate.from_template("""
     Jawab pertanyaan berdasarkan konteks yang diberikan.
-    Berikan respons yang paling akurat sesuai dengan pertanyaan.
     <context>
     {context}
     </context>
     Pertanyaan: {input}
-    """
-)
+""")
 
-# Prompt template for travel recommendations
-travel_prompt = ChatPromptTemplate.from_template(
-    """
-    Anda adalah asisten yang ahli dalam merekomendasikan tempat wisata.
-    Berikan rekomendasi tempat wisata di Indonesia berdasarkan preferensi pengguna.
-    Pastikan rekomendasi Anda detail dan informatif.
+travel_prompt = ChatPromptTemplate.from_template("""
+    Anda adalah asisten yang ahli dalam rekomendasi tempat wisata di Indonesia.
     Preferensi pengguna: {input}
-    """
-)
+""")
 
-# Function to create vector database from uploaded PDF
 def create_vector_db_from_pdf(pdf_file):
     if "vector_store" not in st.session_state:
         with tempfile.NamedTemporaryFile(delete=False) as temp_file:
             temp_file.write(pdf_file.read())
             pdf_file_path = temp_file.name
 
-        # Initialize embeddings
         st.session_state.embeddings = HuggingFaceEmbeddings(
-            model_name='BAAI/bge-small-en-v1.5', model_kwargs={'device': 'cpu'}, encode_kwargs={'normalize_embeddings': True})
+            model_name='BAAI/bge-small-en-v1.5', 
+            model_kwargs={'device': 'cpu'}, 
+            encode_kwargs={'normalize_embeddings': True})
 
-        # Load PDF and split into chunks
         st.session_state.loader = PyPDFLoader(pdf_file_path)
         st.session_state.text_document_from_pdf = st.session_state.loader.load()
 
@@ -66,11 +54,9 @@ def create_vector_db_from_pdf(pdf_file):
         st.session_state.final_document_chunks = st.session_state.text_splitter.split_documents(
             st.session_state.text_document_from_pdf)
 
-        # Create vector store
         st.session_state.vector_store = FAISS.from_documents(
             st.session_state.final_document_chunks, st.session_state.embeddings)
 
-# Sidebar for PDF upload
 with st.sidebar:
     st.header("Unggah PDF")
     pdf_input_from_user = st.file_uploader("Unggah file PDF", type=['pdf'])
@@ -80,34 +66,48 @@ with st.sidebar:
             create_vector_db_from_pdf(pdf_input_from_user)
             st.success("Vector Database untuk PDF ini siap digunakan!")
 
-# Main chat interface
 if 'chat_history' not in st.session_state:
     st.session_state.chat_history = []
 
-# User input for chat
-user_input = st.text_input("Masukkan pertanyaan atau minta rekomendasi wisata:")
+st.markdown("""
+    <style>
+        .chat-container {
+            display: flex;
+            flex-direction: column-reverse;
+            height: 400px;
+            overflow-y: auto;
+            border: 1px solid #ccc;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+    </style>
+""", unsafe_allow_html=True)
+
+st.markdown("<div class='chat-container' id='chat-box'>", unsafe_allow_html=True)
+
+for speaker, text in reversed(st.session_state.chat_history):
+    if speaker == "Anda":
+        st.markdown(f"**Anda:** {text}")
+    else:
+        st.markdown(f"**Bot:** {text}")
+
+st.markdown("</div>", unsafe_allow_html=True)
+
+user_input = st.text_input("Masukkan pertanyaan atau minta rekomendasi wisata:", key="chat_input")
 
 if st.button('Kirim'):
     if user_input:
         if "vector_store" in st.session_state:
-            # If PDF is uploaded, prioritize Q&A from PDF
             document_chain = create_stuff_documents_chain(llm, pdf_prompt)
             retriever = st.session_state.vector_store.as_retriever()
             retrieval_chain = create_retrieval_chain(retriever, document_chain)
             response = retrieval_chain.invoke({'input': user_input})
             answer = response['answer']
         else:
-            # If no PDF is uploaded, provide travel recommendations
             response = llm.invoke(travel_prompt.format(input=user_input))
             answer = response.content
 
-        # Append to chat history
         st.session_state.chat_history.append(("Anda", user_input))
         st.session_state.chat_history.append(("Bot", answer))
 
-# Display chat history
-for speaker, text in st.session_state.chat_history:
-    if speaker == "Anda":
-        st.markdown(f"**Anda:** {text}")
-    else:
-        st.markdown(f"**Bot:** {text}")
+        st.rerun()
