@@ -149,11 +149,4 @@ for speaker, text in st.session_state.chat_history:
 st.markdown('</div>', unsafe_allow_html=True)
 
 # Display input box at the bottom
-st.markdown("""
-    <div class="input-container">
-        <form action="" method="post">
-            <input type="text" id="user-input" placeholder="Tulis pesan..." style="width: 90%; padding: 10px;">
-            <button type="submit" style="width: 8%; padding: 10px;">Kirim</button>
-        </form>
-    </div>
-""", unsafe_allow_html=True)
+st.text_input("Masukkan pesan atau pertanyaan", key="user_input", label_visibility="collapsed")
