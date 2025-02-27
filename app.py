@@ -11,19 +11,14 @@ from langchain_community.document_loaders import PyPDFLoader
 from dotenv import load_dotenv
 import tempfile
 
-
 load_dotenv()
 
-
 groq_api_key = os.getenv('GROQ_API_KEY')
-
 
 st.markdown("<h2 style='text-align: center;'>PDF Insights: Interactive Q&A with Llama3 & Groq API</h2>",
             unsafe_allow_html=True)
 
-
 llm = ChatGroq(groq_api_key=groq_api_key, model_name="Llama3-8b-8192")
-
 
 prompt = ChatPromptTemplate.from_template(
     """
@@ -36,22 +31,16 @@ prompt = ChatPromptTemplate.from_template(
     """
 )
 
-
 def create_vector_db_out_of_the_uploaded_pdf_file(pdf_file):
-
     if "vector_store" not in st.session_state:
-
         with tempfile.NamedTemporaryFile(delete=False) as temp_file:
-
             temp_file.write(pdf_file.read())
-
             pdf_file_path = temp_file.name
 
         st.session_state.embeddings = HuggingFaceEmbeddings(
             model_name='BAAI/bge-small-en-v1.5', model_kwargs={'device': 'cpu'}, encode_kwargs={'normalize_embeddings': True})
 
         st.session_state.loader = PyPDFLoader(pdf_file_path)
-
         st.session_state.text_document_from_pdf = st.session_state.loader.load()
 
         st.session_state.text_splitter = RecursiveCharacterTextSplitter(
@@ -63,52 +52,38 @@ def create_vector_db_out_of_the_uploaded_pdf_file(pdf_file):
         st.session_state.vector_store = FAISS.from_documents(
             st.session_state.final_document_chunks, st.session_state.embeddings)
 
-
 pdf_input_from_user = st.file_uploader("Upload the PDF file", type=['pdf'])
 
-
 if pdf_input_from_user is not None:
-
     if st.button("Create the Vector DB from the uploaded PDF file"):
-
         if pdf_input_from_user is not None:
-
             create_vector_db_out_of_the_uploaded_pdf_file(pdf_input_from_user)
-
             st.success("Vector Store DB for this PDF file Is Ready")
-
         else:
-
             st.write("Please upload a PDF file first")
 
-
 if "vector_store" in st.session_state:
+    if 'chat_history' not in st.session_state:
+        st.session_state.chat_history = []
 
-    user_prompt = st.text_input(
-        "Enter Your Question related to the uploaded PDF")
+    user_prompt = st.text_input("Enter Your Question related to the uploaded PDF")
 
     if st.button('Submit Prompt'):
-
         if user_prompt:
+            document_chain = create_stuff_documents_chain(llm, prompt)
+            retriever = st.session_state.vector_store.as_retriever()
+            retrieval_chain = create_retrieval_chain(retriever, document_chain)
+            response = retrieval_chain.invoke({'input': user_prompt})
 
-            if "vector_store" in st.session_state:
+            # Append the user's question and the model's response to the chat history
+            st.session_state.chat_history.append(("You", user_prompt))
+            st.session_state.chat_history.append(("Bot", response['answer']))
 
-                document_chain = create_stuff_documents_chain(llm, prompt)
-
-                retriever = st.session_state.vector_store.as_retriever()
-
-                retrieval_chain = create_retrieval_chain(
-                    retriever, document_chain)
-
-                response = retrieval_chain.invoke({'input': user_prompt})
-
-                st.write(response['answer'])
-
-            else:
-
-                st.write(
-                    "Please embed the document first by uploading a PDF file.")
-
+            # Display the chat history
+            for speaker, text in st.session_state.chat_history:
+                if speaker == "You":
+                    st.markdown(f"**You:** {text}")
+                else:
+                    st.markdown(f"**Bot:** {text}")
         else:
-
             st.error('Please write your prompt')
