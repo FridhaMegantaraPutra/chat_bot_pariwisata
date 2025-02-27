@@ -80,70 +80,78 @@ with st.sidebar:
             create_vector_db_from_pdf(pdf_input_from_user)
             st.success("Vector Database untuk PDF ini siap digunakan!")
 
+# Apply custom CSS to style chat bubbles and position chat elements
+st.markdown("""
+    <style>
+        .chat-container {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            padding: 10px;
+        }
+        .user-chat {
+            align-self: flex-end;
+            background-color: #DCF8C6;
+            border-radius: 10px;
+            padding: 10px;
+            max-width: 70%;
+        }
+        .bot-chat {
+            align-self: flex-start;
+            background-color: #E4E6EB;
+            border-radius: 10px;
+            padding: 10px;
+            max-width: 70%;
+        }
+        .text-input-container {
+            position: fixed;
+            bottom: 10px;
+            width: 100%;
+            background-color: white;
+            padding: 10px;
+        }
+        .stTextInput input {
+            width: 90%;
+            padding: 10px;
+            border-radius: 20px;
+            border: 1px solid #ddd;
+        }
+        .stButton {
+            margin-left: 10px;
+        }
+    </style>
+""", unsafe_allow_html=True)
+
 # Main chat interface
 if 'chat_history' not in st.session_state:
     st.session_state.chat_history = []
 
-# CSS untuk styling chat bubble
-st.markdown("""
-<style>
-.chat-container {
-    display: flex;
-    flex-direction: column;
-    height: 70vh;
-    overflow-y: auto;
-    padding: 10px;
-    border: 1px solid #ddd;
-    border-radius: 10px;
-    margin-bottom: 10px;
-}
-.user-message {
-    align-self: flex-end;
-    background-color: #dcf8c6;
-    padding: 10px;
-    border-radius: 10px;
-    margin: 5px;
-    max-width: 70%;
-}
-.bot-message {
-    align-self: flex-start;
-    background-color: #ececec;
-    padding: 10px;
-    border-radius: 10px;
-    margin: 5px;
-    max-width: 70%;
-}
-</style>
-""", unsafe_allow_html=True)
-
-# Container untuk menampilkan chat history
-chat_container = st.container()
-
-# Input text box di bagian bawah
-user_input = st.text_input("Masukkan pertanyaan atau minta rekomendasi wisata:", key="input", placeholder="Ketik pesan Anda di sini...")
+# User input for chat
+user_input = st.text_input("Masukkan pertanyaan atau minta rekomendasi wisata:")
 
 if st.button('Kirim'):
     if user_input:
         if "vector_store" in st.session_state:
-            # Jika PDF diunggah, prioritaskan Q&A dari PDF
+            # If PDF is uploaded, prioritize Q&A from PDF
             document_chain = create_stuff_documents_chain(llm, pdf_prompt)
             retriever = st.session_state.vector_store.as_retriever()
             retrieval_chain = create_retrieval_chain(retriever, document_chain)
             response = retrieval_chain.invoke({'input': user_input})
             answer = response['answer']
         else:
-            # Jika tidak ada PDF yang diunggah, berikan rekomendasi wisata
+            # If no PDF is uploaded, provide travel recommendations
             response = llm.invoke(travel_prompt.format(input=user_input))
             answer = response.content
 
-        # Tambahkan ke chat history
+        # Append to chat history
         st.session_state.chat_history.append(("Anda", user_input))
         st.session_state.chat_history.append(("Bot", answer))
 
-# Tampilkan chat history dalam container
-with chat_container:
-    for speaker, text in st.session_state.chat_history:
-        if speaker == "Anda":
-            st.markdown(f'<div class="user-message">{text}</div>', unsafe_allow_html=True)
-        else:
-            st.markdown(f'<div class="bot-message">{text}</div>', unsafe_allow_html=True)
+# Display chat history with custom bubbles
+st.markdown('<div class="chat-container">', unsafe_allow_html=True)
+for speaker, text in st.session_state.chat_history:
+    if speaker == "Anda":
+        st.markdown(f'<div class="user-chat">{text}</div>', unsafe_allow_html=True)
+    else:
+        st.markdown(f'<div class="bot-chat">{text}</div>', unsafe_allow_html=True)
+st.markdown('</div>', unsafe_allow_html=True)
