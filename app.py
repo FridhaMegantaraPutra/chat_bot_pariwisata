@@ -80,48 +80,6 @@ with st.sidebar:
             create_vector_db_from_pdf(pdf_input_from_user)
             st.success("Vector Database untuk PDF ini siap digunakan!")
 
-# Apply custom CSS to style chat bubbles and position chat elements
-st.markdown("""
-    <style>
-        .chat-container {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            padding: 10px;
-        }
-        .user-chat {
-            align-self: flex-end;
-            background-color: #DCF8C6;
-            border-radius: 10px;
-            padding: 10px;
-            max-width: 70%;
-        }
-        .bot-chat {
-            align-self: flex-start;
-            background-color: #E4E6EB;
-            border-radius: 10px;
-            padding: 10px;
-            max-width: 70%;
-        }
-        .text-input-container {
-            position: fixed;
-            bottom: 10px;
-            width: 100%;
-            background-color: white;
-            padding: 10px;
-        }
-        .stTextInput input {
-            width: 90%;
-            padding: 10px;
-            border-radius: 20px;
-            border: 1px solid #ddd;
-        }
-        .stButton {
-            margin-left: 10px;
-        }
-    </style>
-""", unsafe_allow_html=True)
-
 # Main chat interface
 if 'chat_history' not in st.session_state:
     st.session_state.chat_history = []
@@ -147,11 +105,55 @@ if st.button('Kirim'):
         st.session_state.chat_history.append(("Anda", user_input))
         st.session_state.chat_history.append(("Bot", answer))
 
-# Display chat history with custom bubbles
+# Display chat history with custom CSS for bubbles and layout
+st.markdown("""
+    <style>
+        .chat-bubble {
+            border-radius: 15px;
+            padding: 10px;
+            margin: 5px;
+            max-width: 70%;
+        }
+        .chat-user {
+            background-color: #DCF8C6;
+            text-align: right;
+            margin-left: auto;
+        }
+        .chat-bot {
+            background-color: #f1f0f0;
+            text-align: left;
+            margin-right: auto;
+        }
+        .chat-container {
+            max-height: 500px;
+            overflow-y: scroll;
+        }
+        .input-container {
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            padding: 10px;
+            background-color: #fff;
+            border-top: 1px solid #ddd;
+        }
+    </style>
+""", unsafe_allow_html=True)
+
+# Create chat container with scrollable history
 st.markdown('<div class="chat-container">', unsafe_allow_html=True)
 for speaker, text in st.session_state.chat_history:
     if speaker == "Anda":
-        st.markdown(f'<div class="user-chat">{text}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="chat-bubble chat-user">{text}</div>', unsafe_allow_html=True)
     else:
-        st.markdown(f'<div class="bot-chat">{text}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="chat-bubble chat-bot">{text}</div>', unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
+
+# Display input box at the bottom
+st.markdown("""
+    <div class="input-container">
+        <form action="" method="post">
+            <input type="text" id="user-input" placeholder="Tulis pesan..." style="width: 90%; padding: 10px;">
+            <button type="submit" style="width: 8%; padding: 10px;">Kirim</button>
+        </form>
+    </div>
+""", unsafe_allow_html=True)
