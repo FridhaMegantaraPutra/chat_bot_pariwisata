@@ -98,9 +98,8 @@ if st.button('Kirim'):
             answer = response['answer']
         else:
             # If no PDF is uploaded, provide travel recommendations
-            travel_chain = create_stuff_documents_chain(llm, travel_prompt)
-            response = travel_chain.invoke({'input': user_input})
-            answer = response['answer']
+            response = llm.invoke(travel_prompt.format(input=user_input))
+            answer = response.content
 
         # Append to chat history
         st.session_state.chat_history.append(("Anda", user_input))
