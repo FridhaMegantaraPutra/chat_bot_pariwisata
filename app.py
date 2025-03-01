@@ -5,7 +5,7 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain_core.prompts import ChatPromptTemplate
-from langchain.chains import create_retrieval_chain
+from langchain_chains import create_retrieval_chain
 from langchain_community.vectorstores import FAISS
 from langchain_community.document_loaders import PyPDFLoader
 from dotenv import load_dotenv
@@ -73,7 +73,28 @@ with st.sidebar:
 if 'chat_history' not in st.session_state:
     st.session_state.chat_history = []
 
+st.markdown("""
+    <style>
+        .chat-bubble { border-radius: 15px; padding: 10px; margin: 5px; max-width: 70%; }
+        .chat-user { background-color: #DCF8C6; text-align: right; margin-left: auto; }
+        .chat-bot { background-color: #f1f0f0; text-align: left; margin-right: auto; }
+        .chat-container { max-height: 500px; overflow-y: auto; display: flex; flex-direction: column-reverse; }
+        .input-container { position: fixed; bottom: 0; width: 100%; padding: 10px; background-color: #fff; border-top: 1px solid #ddd; }
+    </style>
+""", unsafe_allow_html=True)
+
+st.markdown('<div class="chat-container">', unsafe_allow_html=True)
+for speaker, text in st.session_state.chat_history:
+    if speaker == "Anda":
+        st.markdown(f'<div class="chat-bubble chat-user">{text}</div>', unsafe_allow_html=True)
+    else:
+        st.markdown(f'<div class="chat-bubble chat-bot">{text}</div>', unsafe_allow_html=True)
+st.markdown('</div>', unsafe_allow_html=True)
+
+st.markdown('<div class="input-container">', unsafe_allow_html=True)
 user_input = st.text_input("Masukkan pertanyaan atau minta rekomendasi wisata:", key="user_input")
+st.markdown('</div>', unsafe_allow_html=True)
+
 if st.button('Kirim') and user_input:
     if "vector_store" in st.session_state:
         document_chain = create_stuff_documents_chain(llm, pdf_prompt)
@@ -87,20 +108,3 @@ if st.button('Kirim') and user_input:
     
     st.session_state.chat_history.append(("Anda", user_input))
     st.session_state.chat_history.append(("Bot", answer))
-
-st.markdown("""
-    <style>
-        .chat-bubble { border-radius: 15px; padding: 10px; margin: 5px; max-width: 70%; }
-        .chat-user { background-color: #DCF8C6; text-align: right; margin-left: auto; }
-        .chat-bot { background-color: #f1f0f0; text-align: left; margin-right: auto; }
-        .chat-container { max-height: 500px; overflow-y: auto; }
-    </style>
-""", unsafe_allow_html=True)
-
-st.markdown('<div class="chat-container">', unsafe_allow_html=True)
-for speaker, text in st.session_state.chat_history:
-    if speaker == "Anda":
-        st.markdown(f'<div class="chat-bubble chat-user">{text}</div>', unsafe_allow_html=True)
-    else:
-        st.markdown(f'<div class="chat-bubble chat-bot">{text}</div>', unsafe_allow_html=True)
-st.markdown('</div>', unsafe_allow_html=True)
