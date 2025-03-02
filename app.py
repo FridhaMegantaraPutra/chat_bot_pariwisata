@@ -17,7 +17,14 @@ load_dotenv()
 groq_api_key = os.getenv('GROQ_API_KEY')
 
 # Streamlit app title
-st.markdown("<h2 style='text-align: center;'>Aplikasi Rekomendasi Wisata & Q&A PDF</h2>", unsafe_allow_html=True)
+st.title("Aplikasi Rekomendasi Wisata & Q&A PDF")
+with st.expander("ℹ️ Disclaimer"):
+    st.caption(
+        """Kami menghargai keterlibatan Anda! Harap dicatat, aplikasi ini dirancang untuk
+        memproses maksimum 10 interaksi dan mungkin tidak tersedia jika terlalu banyak
+        orang menggunakan layanan secara bersamaan. Terima kasih atas pengertian Anda.
+        """
+    )
 
 # Initialize Groq LLM
 llm = ChatGroq(groq_api_key=groq_api_key, model_name="Llama3-8b-8192")
@@ -70,38 +77,45 @@ with st.sidebar:
 if 'chat_history' not in st.session_state:
     st.session_state.chat_history = []
 
-chat_container = st.container()
-with chat_container:
-    for speaker, text in st.session_state.chat_history:
-        alignment = "flex-end" if speaker == "Anda" else "flex-start"
-        bg_color = "#DCF8C6" if speaker == "Anda" else "#EAEAEA"
-        st.markdown(
-            f"""
-            <div style='display: flex; flex-direction: column; align-items: {alignment};'>
-                <div style='background-color: {bg_color}; padding: 10px; border-radius: 10px; margin: 5px; max-width: 70%;'>
-                    {text}
+if len(st.session_state.chat_history) >= 20:  # Limit to 20 messages
+    st.info(
+        """Pemberitahuan: Batas maksimum interaksi untuk versi demo ini telah tercapai. 
+        Kami menghargai minat Anda! Kami mendorong Anda untuk mengalami interaksi lebih lanjut 
+        dengan membangun aplikasi Anda sendiri."""
+    )
+else:
+    chat_container = st.container()
+    with chat_container:
+        for speaker, text in st.session_state.chat_history:
+            alignment = "flex-end" if speaker == "Anda" else "flex-start"
+            bg_color = "#DCF8C6" if speaker == "Anda" else "#EAEAEA"
+            st.markdown(
+                f"""
+                <div style='display: flex; flex-direction: column; align-items: {alignment};'>
+                    <div style='background-color: {bg_color}; padding: 10px; border-radius: 10px; margin: 5px; max-width: 70%;'>
+                        {text}
+                    </div>
                 </div>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
+                """,
+                unsafe_allow_html=True
+            )
 
-user_input = st.text_input("Ketik pesan...")
-if st.button("Kirim"):
-    if user_input:
-        try:
-            if "vector_store" in st.session_state:
-                document_chain = create_stuff_documents_chain(llm, pdf_prompt)
-                retriever = st.session_state.vector_store.as_retriever()
-                retrieval_chain = create_retrieval_chain(retriever, document_chain)
-                response = retrieval_chain.invoke({'input': user_input})
-                answer = response.get('answer', "Maaf, saya tidak dapat menemukan jawaban.")
-            else:
-                response = llm.invoke(travel_prompt.format(input=user_input))
-                answer = response.content if response else "Maaf, saya tidak bisa menjawab pertanyaan Anda."
-        except Exception as e:
-            answer = f"Terjadi kesalahan: {e}"
-        
-        st.session_state.chat_history.append(("Anda", user_input))
-        st.session_state.chat_history.append(("Bot", answer))
-        st.experimental_rerun()
+    user_input = st.text_input("Ketik pesan...")
+    if st.button("Kirim"):
+        if user_input:
+            try:
+                if "vector_store" in st.session_state:
+                    document_chain = create_stuff_documents_chain(llm, pdf_prompt)
+                    retriever = st.session_state.vector_store.as_retriever()
+                    retrieval_chain = create_retrieval_chain(retriever, document_chain)
+                    response = retrieval_chain.invoke({'input': user_input})
+                    answer = response.get('answer', "Maaf, saya tidak dapat menemukan jawaban.")
+                else:
+                    response = llm.invoke(travel_prompt.format(input=user_input))
+                    answer = response.content if response else "Maaf, saya tidak bisa menjawab pertanyaan Anda."
+            except Exception as e:
+                answer = f"Terjadi kesalahan: {e}"
+            
+            st.session_state.chat_history.append(("Anda", user_input))
+            st.session_state.chat_history.append(("Bot", answer))
+            st.experimental_rerun()
