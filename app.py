@@ -16,13 +16,17 @@ load_dotenv()
 
 groq_api_key = os.getenv('GROQ_API_KEY')
 
+# Streamlit app title
 st.title("Aplikasi Rekomendasi Wisata & Q&A PDF")
 with st.expander("ℹ️ Disclaimer"):
     st.caption(
-        """Aplikasi ini dapat menangani percakapan dalam jumlah terbatas. Jika layanan tidak tersedia,
-        silakan coba lagi nanti. Terima kasih atas pengertiannya!"""
+        """Kami menghargai keterlibatan Anda! Harap dicatat, aplikasi ini dirancang untuk
+        memproses maksimum 10 interaksi dan mungkin tidak tersedia jika terlalu banyak
+        orang menggunakan layanan secara bersamaan. Terima kasih atas pengertian Anda.
+        """
     )
 
+# Initialize Groq LLM
 llm = ChatGroq(groq_api_key=groq_api_key, model_name="Llama3-8b-8192")
 
 pdf_prompt = ChatPromptTemplate.from_template(
@@ -70,27 +74,35 @@ with st.sidebar:
         if st.button("Buat Vector Database dari PDF"):
             create_vector_db_from_pdf(pdf_input_from_user)
 
-if "messages" not in st.session_state:
-    st.session_state.messages = []
+if 'chat_history' not in st.session_state:
+    st.session_state.chat_history = []
 
-if "max_messages" not in st.session_state:
-    st.session_state.max_messages = 20
-
-for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
-
-if len(st.session_state.messages) >= st.session_state.max_messages:
+if len(st.session_state.chat_history) >= 20:  # Limit to 20 messages
     st.info(
-        """Notice: Batas maksimum percakapan telah tercapai. Silakan coba lagi nanti."""
+        """Pemberitahuan: Batas maksimum interaksi untuk versi demo ini telah tercapai. 
+        Kami menghargai minat Anda! Kami mendorong Anda untuk mengalami interaksi lebih lanjut 
+        dengan membangun aplikasi Anda sendiri."""
     )
 else:
-    if user_input := st.chat_input("Ketik pesan..."):
-        st.session_state.messages.append({"role": "user", "content": user_input})
-        with st.chat_message("user"):
-            st.markdown(user_input)
-        
-        with st.chat_message("assistant"):
+    chat_container = st.container()
+    with chat_container:
+        for speaker, text in st.session_state.chat_history:
+            alignment = "flex-end" if speaker == "Anda" else "flex-start"
+            bg_color = "#DCF8C6" if speaker == "Anda" else "#EAEAEA"
+            st.markdown(
+                f"""
+                <div style='display: flex; flex-direction: column; align-items: {alignment};'>
+                    <div style='background-color: {bg_color}; padding: 10px; border-radius: 10px; margin: 5px; max-width: 70%;'>
+                        {text}
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+
+    user_input = st.text_input("Ketik pesan...")
+    if st.button("Kirim"):
+        if user_input:
             try:
                 if "vector_store" in st.session_state:
                     document_chain = create_stuff_documents_chain(llm, pdf_prompt)
@@ -104,5 +116,6 @@ else:
             except Exception as e:
                 answer = f"Terjadi kesalahan: {e}"
             
-            st.markdown(answer)
-            st.session_state.messages.append({"role": "assistant", "content": answer})
+            st.session_state.chat_history.append(("Anda", user_input))
+            st.session_state.chat_history.append(("Bot", answer))
+            st.experimental_rerun()
