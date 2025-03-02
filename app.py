@@ -101,8 +101,26 @@ else:
                 unsafe_allow_html=True
             )
 
-    # Input text box placed outside the chat container
-    user_input = st.text_input("Ketik pesan...")
+    # Fixed input box at the bottom
+    st.markdown(
+        """
+        <style>
+        .fixed-input {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background-color: white;
+            padding: 10px;
+            box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
+    user_input = st.text_input("Ketik pesan...", key="user_input", placeholder="Tulis pesan di sini...")
     if st.button("Kirim"):
         if user_input:
             try:
