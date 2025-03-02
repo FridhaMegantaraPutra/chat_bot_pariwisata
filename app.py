@@ -13,19 +13,15 @@ import tempfile
 
 # Load environment variables
 load_dotenv()
-
 groq_api_key = os.getenv('GROQ_API_KEY')
 
-# Streamlit app title
-st.markdown("<h2 style='text-align: center;'>Aplikasi Rekomendasi Wisata & Q&A PDF</h2>", unsafe_allow_html=True)
-
-# Initialize Groq LLM
+# Inisialisasi LLM
 llm = ChatGroq(groq_api_key=groq_api_key, model_name="Llama3-8b-8192")
 
+# Prompt untuk pertanyaan dari PDF
 pdf_prompt = ChatPromptTemplate.from_template(
     """
-    Jawab pertanyaan berdasarkan konteks yang diberikan.
-    Berikan respons yang paling akurat sesuai dengan pertanyaan.
+    Jawab pertanyaan berdasarkan konteks berikut:
     <context>
     {context}
     </context>
@@ -33,15 +29,15 @@ pdf_prompt = ChatPromptTemplate.from_template(
     """
 )
 
+# Prompt untuk rekomendasi wisata
 travel_prompt = ChatPromptTemplate.from_template(
     """
-    Anda adalah asisten yang ahli dalam merekomendasikan tempat wisata.
-    Berikan rekomendasi tempat wisata di Indonesia berdasarkan preferensi pengguna.
-    Pastikan rekomendasi Anda detail dan informatif.
-    Preferensi pengguna: {input}
+    Anda adalah asisten wisata yang dapat merekomendasikan tempat wisata di Indonesia.
+    Gunakan informasi berikut sebagai referensi: {input}
     """
 )
 
+# Fungsi untuk membuat database vektor dari PDF
 def create_vector_db_from_pdf(pdf_file):
     if "vector_store" not in st.session_state:
         with tempfile.NamedTemporaryFile(delete=False) as temp_file:
@@ -66,60 +62,24 @@ with st.sidebar:
     if pdf_input_from_user is not None:
         if st.button("Buat Vector Database dari PDF"):
             create_vector_db_from_pdf(pdf_input_from_user)
-            st.success("Vector Database untuk PDF ini siap digunakan!")
+            st.success("Vector Database PDF siap!")
 
 # Inisialisasi chat history di session_state
 if 'chat_history' not in st.session_state:
     st.session_state.chat_history = []
 
-# Styling CSS agar chat terscroll otomatis dan input tetap di bawah
-st.markdown("""
-<style>
-.chat-container {
-    display: flex;
-    flex-direction: column-reverse; /* Membalik urutan chat agar input tetap di bawah */
-    overflow-y: auto;
-    height: 400px; /* Batasi tinggi chat agar tetap rapi */
-    border: 1px solid #ddd;
-    padding: 10px;
-    margin-bottom: 10px;
-}
-.chat-bubble-user {
-    background-color: #DCF8C6;
-    padding: 10px;
-    border-radius: 10px;
-    display: inline-block;
-    margin: 5px;
-    max-width: 70%;
-    align-self: flex-end;
-}
-.chat-bubble-bot {
-    background-color: #EAEAEA;
-    padding: 10px;
-    border-radius: 10px;
-    display: inline-block;
-    margin: 5px;
-    max-width: 70%;
-    align-self: flex-start;
-}
-</style>
-""", unsafe_allow_html=True)
+# Tampilkan riwayat chat
+st.markdown("## Chat Bot")
+for speaker, text in st.session_state.chat_history:
+    if speaker == "Anda":
+        st.markdown(f"**🧑 Anda:** {text}")
+    else:
+        st.markdown(f"**🤖 Bot:** {text}")
 
-# Container chat agar input selalu di bawah
-chat_container = st.container()
-with chat_container:
-    st.markdown('<div class="chat-container">', unsafe_allow_html=True)
-    for speaker, text in reversed(st.session_state.chat_history):  # Dibalik agar yang terbaru di bawah
-        if speaker == "Anda":
-            st.markdown(f"<div class='chat-bubble-user'>{text}</div>", unsafe_allow_html=True)
-        else:
-            st.markdown(f"<div class='chat-bubble-bot'>{text}</div>", unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
-
-# Input pengguna
+# Input pengguna **harus berada di luar kondisi if**
 user_input = st.chat_input("Ketik pesan...")
 
-# Jika ada input, proses dan tambahkan ke chat history
+# Jika pengguna mengirim pesan
 if user_input:
     if "vector_store" in st.session_state:
         document_chain = create_stuff_documents_chain(llm, pdf_prompt)
@@ -131,9 +91,9 @@ if user_input:
         response = llm.invoke(travel_prompt.format(input=user_input))
         answer = response.content
 
-    # Tambahkan ke chat history
+    # Simpan chat
     st.session_state.chat_history.append(("Anda", user_input))
     st.session_state.chat_history.append(("Bot", answer))
 
-    # Tampilkan kembali halaman agar chat terbaru muncul tanpa menghapus yang lama
+    # Refresh halaman agar chat terbaru muncul
     st.experimental_rerun()
