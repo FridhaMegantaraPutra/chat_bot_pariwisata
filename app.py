@@ -48,16 +48,17 @@ def create_vector_db_from_pdf(pdf_file):
             temp_file.write(pdf_file.read())
             pdf_file_path = temp_file.name
         
-        st.session_state.embeddings = HuggingFaceEmbeddings(
+        embeddings = HuggingFaceEmbeddings(
             model_name='BAAI/bge-small-en-v1.5', model_kwargs={'device': 'cpu'}, encode_kwargs={'normalize_embeddings': True})
         
-        st.session_state.loader = PyPDFLoader(pdf_file_path)
-        st.session_state.text_document_from_pdf = st.session_state.loader.load()
+        loader = PyPDFLoader(pdf_file_path)
+        text_documents = loader.load()
         
-        st.session_state.text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
-        st.session_state.final_document_chunks = st.session_state.text_splitter.split_documents(st.session_state.text_document_from_pdf)
+        text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+        document_chunks = text_splitter.split_documents(text_documents)
         
-        st.session_state.vector_store = FAISS.from_documents(st.session_state.final_document_chunks, st.session_state.embeddings)
+        st.session_state.vector_store = FAISS.from_documents(document_chunks, embeddings)
+        st.success("Vector Database untuk PDF ini siap digunakan!")
 
 with st.sidebar:
     st.header("Unggah PDF")
@@ -65,66 +66,42 @@ with st.sidebar:
     if pdf_input_from_user is not None:
         if st.button("Buat Vector Database dari PDF"):
             create_vector_db_from_pdf(pdf_input_from_user)
-            st.success("Vector Database untuk PDF ini siap digunakan!")
 
 if 'chat_history' not in st.session_state:
     st.session_state.chat_history = []
 
-st.markdown("""
-<style>
-.chat-bubble-user {
-    background-color: #DCF8C6;
-    padding: 10px;
-    border-radius: 10px;
-    display: inline-block;
-    margin: 5px;
-    max-width: 70%;
-    align-self: flex-end;
-}
-.chat-bubble-bot {
-    background-color: #EAEAEA;
-    padding: 10px;
-    border-radius: 10px;
-    display: inline-block;
-    margin: 5px;
-    max-width: 70%;
-    align-self: flex-start;
-}
-.chat-container {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-}
-.user-message {
-    align-self: flex-end;
-}
-.bot-message {
-    align-self: flex-start;
-}
-</style>
-""", unsafe_allow_html=True)
-
 chat_container = st.container()
 with chat_container:
     for speaker, text in st.session_state.chat_history:
-        if speaker == "Anda":
-            st.markdown(f"<div class='chat-container user-message'><div class='chat-bubble-user'>{text}</div></div>", unsafe_allow_html=True)
-        else:
-            st.markdown(f"<div class='chat-container bot-message'><div class='chat-bubble-bot'>{text}</div></div>", unsafe_allow_html=True)
+        alignment = "flex-end" if speaker == "Anda" else "flex-start"
+        bg_color = "#DCF8C6" if speaker == "Anda" else "#EAEAEA"
+        st.markdown(
+            f"""
+            <div style='display: flex; flex-direction: column; align-items: {alignment};'>
+                <div style='background-color: {bg_color}; padding: 10px; border-radius: 10px; margin: 5px; max-width: 70%;'>
+                    {text}
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
 
 user_input = st.text_input("Ketik pesan...")
 if st.button("Kirim"):
     if user_input:
-        if "vector_store" in st.session_state:
-            document_chain = create_stuff_documents_chain(llm, pdf_prompt)
-            retriever = st.session_state.vector_store.as_retriever()
-            retrieval_chain = create_retrieval_chain(retriever, document_chain)
-            response = retrieval_chain.invoke({'input': user_input})
-            answer = response['answer']
-        else:
-            response = llm.invoke(travel_prompt.format(input=user_input))
-            answer = response.content
-
+        try:
+            if "vector_store" in st.session_state:
+                document_chain = create_stuff_documents_chain(llm, pdf_prompt)
+                retriever = st.session_state.vector_store.as_retriever()
+                retrieval_chain = create_retrieval_chain(retriever, document_chain)
+                response = retrieval_chain.invoke({'input': user_input})
+                answer = response.get('answer', "Maaf, saya tidak dapat menemukan jawaban.")
+            else:
+                response = llm.invoke(travel_prompt.format(input=user_input))
+                answer = response.content if response else "Maaf, saya tidak bisa menjawab pertanyaan Anda."
+        except Exception as e:
+            answer = f"Terjadi kesalahan: {e}"
+        
         st.session_state.chat_history.append(("Anda", user_input))
         st.session_state.chat_history.append(("Bot", answer))
-        st.rerun()
+        st.experimental_rerun()
