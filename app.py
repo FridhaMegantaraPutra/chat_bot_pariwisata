@@ -17,13 +17,14 @@ load_dotenv()
 groq_api_key = os.getenv('GROQ_API_KEY')
 
 # Streamlit app title
-st.title("Aplikasi Rekomendasi Wisata & Q&A PDF")
+st.markdown("<h2 style='text-align: center;'>Aplikasi Rekomendasi Wisata & Q&A PDF</h2>", unsafe_allow_html=True)
+
+# Disclaimer
 with st.expander("ℹ️ Disclaimer"):
     st.caption(
-        """Kami menghargai keterlibatan Anda! Harap dicatat, aplikasi ini dirancang untuk
-        memproses maksimum 10 interaksi dan mungkin tidak tersedia jika terlalu banyak
-        orang menggunakan layanan secara bersamaan. Terima kasih atas pengertian Anda.
-        """
+        """Kami menghargai partisipasi Anda! Harap diperhatikan, demo ini dirancang untuk
+        memproses maksimal 10 interaksi dan mungkin tidak tersedia jika terlalu banyak
+        orang menggunakan layanan ini secara bersamaan. Terima kasih atas pengertian Anda."""
     )
 
 # Initialize Groq LLM
@@ -74,48 +75,66 @@ with st.sidebar:
         if st.button("Buat Vector Database dari PDF"):
             create_vector_db_from_pdf(pdf_input_from_user)
 
+# Initialize session state for chat history and message limit
 if 'chat_history' not in st.session_state:
     st.session_state.chat_history = []
 
-if len(st.session_state.chat_history) >= 20:  # Limit to 20 messages
+if "max_messages" not in st.session_state:
+    # Counting both user and assistant messages, so 10 rounds of conversation
+    st.session_state.max_messages = 20
+
+# Display chat history
+chat_container = st.container()
+with chat_container:
+    for speaker, text in st.session_state.chat_history:
+        alignment = "flex-end" if speaker == "Anda" else "flex-start"
+        bg_color = "#DCF8C6" if speaker == "Anda" else "#EAEAEA"
+        st.markdown(
+            f"""
+            <div style='display: flex; flex-direction: column; align-items: {alignment};'>
+                <div style='background-color: {bg_color}; padding: 10px; border-radius: 10px; margin: 5px; max-width: 70%;'>
+                    {text}
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+# Check if message limit is reached
+if len(st.session_state.chat_history) >= st.session_state.max_messages:
     st.info(
-        """Pemberitahuan: Batas maksimum interaksi untuk versi demo ini telah tercapai. 
-        Kami menghargai minat Anda! Kami mendorong Anda untuk mengalami interaksi lebih lanjut 
-        dengan membangun aplikasi Anda sendiri."""
+        """Notice: The maximum message limit for this demo version has been reached. We value your interest!
+        We encourage you to experience further interactions by building your own application with instructions
+        from Streamlit's [Build a basic LLM chat app](https://docs.streamlit.io/develop/tutorials/llms/build-conversational-apps)
+        tutorial. Thank you for your understanding."""
     )
 else:
-    chat_container = st.container()
-    with chat_container:
-        for speaker, text in st.session_state.chat_history:
-            alignment = "flex-end" if speaker == "Anda" else "flex-start"
-            bg_color = "#DCF8C6" if speaker == "Anda" else "#EAEAEA"
-            st.markdown(
-                f"""
-                <div style='display: flex; flex-direction: column; align-items: {alignment};'>
-                    <div style='background-color: {bg_color}; padding: 10px; border-radius: 10px; margin: 5px; max-width: 70%;'>
-                        {text}
-                    </div>
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
+    # User input
+    if prompt := st.chat_input("Ketik pesan..."):
+        st.session_state.chat_history.append(("Anda", prompt))
+        
+        with st.chat_message("user"):
+            st.markdown(prompt)
 
-    user_input = st.text_input("Ketik pesan...")
-    if st.button("Kirim"):
-        if user_input:
+        with st.chat_message("assistant"):
             try:
                 if "vector_store" in st.session_state:
                     document_chain = create_stuff_documents_chain(llm, pdf_prompt)
                     retriever = st.session_state.vector_store.as_retriever()
                     retrieval_chain = create_retrieval_chain(retriever, document_chain)
-                    response = retrieval_chain.invoke({'input': user_input})
+                    response = retrieval_chain.invoke({'input': prompt})
                     answer = response.get('answer', "Maaf, saya tidak dapat menemukan jawaban.")
                 else:
-                    response = llm.invoke(travel_prompt.format(input=user_input))
+                    response = llm.invoke(travel_prompt.format(input=prompt))
                     answer = response.content if response else "Maaf, saya tidak bisa menjawab pertanyaan Anda."
+                
+                st.markdown(answer)
+                st.session_state.chat_history.append(("Bot", answer))
             except Exception as e:
-                answer = f"Terjadi kesalahan: {e}"
-            
-            st.session_state.chat_history.append(("Anda", user_input))
-            st.session_state.chat_history.append(("Bot", answer))
-            st.experimental_rerun()
+                st.session_state.max_messages = len(st.session_state.chat_history)
+                rate_limit_message = """
+                    Oops! Maaf, saya tidak bisa berbicara sekarang. Terlalu banyak orang yang menggunakan
+                    layanan ini baru-baru ini.
+                """
+                st.session_state.chat_history.append(("Bot", rate_limit_message))
+                st.rerun()
