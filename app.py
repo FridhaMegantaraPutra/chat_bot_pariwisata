@@ -101,6 +101,7 @@ else:
                 unsafe_allow_html=True
             )
 
+    # Input text box placed outside the chat container
     user_input = st.text_input("Ketik pesan...")
     if st.button("Kirim"):
         if user_input:
