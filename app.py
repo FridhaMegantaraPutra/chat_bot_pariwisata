@@ -71,44 +71,59 @@ with st.sidebar:
             create_vector_db_from_pdf(pdf_input_from_user)
 
 # Initialize chat history
-if 'chat_history' not in st.session_state:
-    st.session_state.chat_history = []
+if 'messages' not in st.session_state:
+    st.session_state.messages = []
 
 # Display chat history
-chat_container = st.container()
-with chat_container:
-    for speaker, text in st.session_state.chat_history:
-        alignment = "flex-end" if speaker == "Anda" else "flex-start"
-        bg_color = "#DCF8C6" if speaker == "Anda" else "#EAEAEA"
-        st.markdown(
-            f"""
-            <div style='display: flex; flex-direction: column; align-items: {alignment};'>
-                <div style='background-color: {bg_color}; padding: 10px; border-radius: 10px; margin: 5px; max-width: 70%;'>
-                    {text}
-                </div>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
+for msg in st.session_state.messages:
+    if msg["role"] == "user":
+        st.chat_message("🙂").write(msg["content"])
+    else:
+        st.chat_message("🗿").write(msg["content"])
 
 # User input area
-user_input = st.text_area("Ketik pesan...", height=100)  # Area input yang tidak ter-scroll
-if st.button("Kirim"):
-    if user_input:
-        try:
-            if "vector_store" in st.session_state:
-                document_chain = create_stuff_documents_chain(llm, pdf_prompt)
-                retriever = st.session_state.vector_store.as_retriever()
-                retrieval_chain = create_retrieval_chain(retriever, document_chain)
-                response = retrieval_chain.invoke({'input': user_input})
-                answer = response.get('answer', "Maaf, saya tidak dapat menemukan jawaban.")
-            else:
-                response = llm.invoke(travel_prompt.format(input=user_input))
-                answer = response.content if response else "Maaf, saya tidak bisa menjawab pertanyaan Anda."
-        except Exception as e:
-            answer = f"Terjadi kesalahan: {e}"
-        
-        # Update chat history
-        st.session_state.chat_history.append(("Anda", user_input))
-        st.session_state.chat_history.append(("Bot", answer))
-        st.experimental_rerun()
+if prompt := st.chat_input("Ketik pesan..."):
+    # Append user message to chat history
+    st.session_state.messages.append({"role": "user", "content": prompt})
+    st.chat_message("🙂").write(prompt)
+
+    # Fetch response from Groq API
+    try:
+        if "vector_store" in st.session_state:
+            document_chain = create_stuff_documents_chain(llm, pdf_prompt)
+            retriever = st.session_state.vector_store.as_retriever()
+            retrieval_chain = create_retrieval_chain(retriever, document_chain)
+            response = retrieval_chain.invoke({'input': prompt})
+            answer = response.get('answer', "Maaf, saya tidak dapat menemukan jawaban.")
+        else:
+            response = llm.invoke(travel_prompt.format(input=prompt))
+            answer = response.content if response else "Maaf, saya tidak bisa menjawab pertanyaan Anda."
+    except Exception as e:
+        answer = f"Terjadi kesalahan: {e}"
+
+    # Append assistant message to chat history
+    st.session_state.messages.append({"role": "assistant", "content": answer})
+    st.chat_message("🗿").write(answer)
+
+# Button to copy conversation text
+if st.button("Salin Teks"):
+    conversation_text = "\n".join(
+        f"🙂: {msg['content']}" if msg["role"] == "user" else f"🗿: {msg['content']}"
+        for msg in st.session_state.messages
+    )
+
+    # JavaScript for copying text to clipboard
+    st.components.v1.html(f"""
+    <textarea id="conversation-text" style="display:none;">{conversation_text}</textarea>
+    <button onclick="copyToClipboard()">Salin Teks</button>
+    <script>
+    function copyToClipboard() {{
+        var copyText = document.getElementById("conversation-text");
+        copyText.style.display = "block";
+        copyText.select();
+        document.execCommand("copy");
+        copyText.style.display = "none";
+        alert("Percakapan telah disalin sebagai teks!");
+    }}
+    </script>
+    """, height=0)
