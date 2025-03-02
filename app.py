@@ -22,7 +22,6 @@ st.markdown("<h2 style='text-align: center;'>Aplikasi Rekomendasi Wisata & Q&A P
 # Initialize Groq LLM
 llm = ChatGroq(groq_api_key=groq_api_key, model_name="Llama3-8b-8192")
 
-# Define prompts
 pdf_prompt = ChatPromptTemplate.from_template(
     """
     Jawab pertanyaan berdasarkan konteks yang diberikan.
@@ -43,7 +42,6 @@ travel_prompt = ChatPromptTemplate.from_template(
     """
 )
 
-# Function to create vector database from PDF
 def create_vector_db_from_pdf(pdf_file):
     if "vector_store" not in st.session_state:
         with tempfile.NamedTemporaryFile(delete=False) as temp_file:
@@ -62,7 +60,6 @@ def create_vector_db_from_pdf(pdf_file):
         st.session_state.vector_store = FAISS.from_documents(document_chunks, embeddings)
         st.success("Vector Database untuk PDF ini siap digunakan!")
 
-# Sidebar for PDF upload
 with st.sidebar:
     st.header("Unggah PDF")
     pdf_input_from_user = st.file_uploader("Unggah file PDF", type=['pdf'])
@@ -70,26 +67,28 @@ with st.sidebar:
         if st.button("Buat Vector Database dari PDF"):
             create_vector_db_from_pdf(pdf_input_from_user)
 
-# Initialize chat history
-if 'messages' not in st.session_state:
-    st.session_state.messages = []
+if 'chat_history' not in st.session_state:
+    st.session_state.chat_history = []
 
-# Display chat history
-for msg in st.session_state.messages:
-    if msg["role"] == "user":
-        st.chat_message("🙂").write(msg["content"])
-    else:
-        st.chat_message("🗿").write(msg["content"])
+chat_container = st.container()
+with chat_container:
+    for speaker, text in st.session_state.chat_history:
+        alignment = "flex-end" if speaker == "Anda" else "flex-start"
+        bg_color = "#DCF8C6" if speaker == "Anda" else "#EAEAEA"
+        st.markdown(
+            f"""
+            <div style='display: flex; flex-direction: column; align-items: {alignment};'>
+                <div style='background-color: {bg_color}; padding: 10px; border-radius: 10px; margin: 5px; max-width: 70%;'>
+                    {text}
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
 
-# User input area using text_input
 user_input = st.text_input("Ketik pesan...")
 if st.button("Kirim"):
     if user_input:
-        # Append user message to chat history
-        st.session_state.messages.append({"role": "user", "content": user_input})
-        st.chat_message("🙂").write(user_input)
-
-        # Fetch response from Groq API
         try:
             if "vector_store" in st.session_state:
                 document_chain = create_stuff_documents_chain(llm, pdf_prompt)
@@ -102,30 +101,7 @@ if st.button("Kirim"):
                 answer = response.content if response else "Maaf, saya tidak bisa menjawab pertanyaan Anda."
         except Exception as e:
             answer = f"Terjadi kesalahan: {e}"
-
-        # Append assistant message to chat history
-        st.session_state.messages.append({"role": "assistant", "content": answer})
-        st.chat_message("🗿").write(answer)
-
-# Button to copy conversation text
-if st.button("Salin Teks"):
-    conversation_text = "\n".join(
-        f"🙂: {msg['content']}" if msg["role"] == "user" else f"🗿: {msg['content']}"
-        for msg in st.session_state.messages
-    )
-
-    # JavaScript for copying text to clipboard
-    st.components.v1.html(f"""
-    <textarea id="conversation-text" style="display:none;">{conversation_text}</textarea>
-    <button onclick="copyToClipboard()">Salin Teks</button>
-    <script>
-    function copyToClipboard() {{
-        var copyText = document.getElementById("conversation-text");
-        copyText.style.display = "block";
-        copyText.select();
-        document.execCommand("copy");
-        copyText.style.display = "none";
-        alert("Percakapan telah disalin sebagai teks!");
-    }}
-    </script>
-    """, height=0)
+        
+        st.session_state.chat_history.append(("Anda", user_input))
+        st.session_state.chat_history.append(("Bot", answer))
+        st.experimental_rerun()
