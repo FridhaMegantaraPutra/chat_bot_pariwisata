@@ -16,18 +16,13 @@ load_dotenv()
 
 groq_api_key = os.getenv('GROQ_API_KEY')
 
-# Streamlit app title
-st.markdown("<h2 style='text-align: center;'>Aplikasi Rekomendasi Wisata & Q&A PDF</h2>", unsafe_allow_html=True)
-
-# Disclaimer
+st.title("Aplikasi Rekomendasi Wisata & Q&A PDF")
 with st.expander("ℹ️ Disclaimer"):
     st.caption(
-        """Kami menghargai partisipasi Anda! Harap diperhatikan, demo ini dirancang untuk
-        memproses maksimal 10 interaksi dan mungkin tidak tersedia jika terlalu banyak
-        orang menggunakan layanan ini secara bersamaan. Terima kasih atas pengertian Anda."""
+        """Aplikasi ini dapat menangani percakapan dalam jumlah terbatas. Jika layanan tidak tersedia,
+        silakan coba lagi nanti. Terima kasih atas pengertiannya!"""
     )
 
-# Initialize Groq LLM
 llm = ChatGroq(groq_api_key=groq_api_key, model_name="Llama3-8b-8192")
 
 pdf_prompt = ChatPromptTemplate.from_template(
@@ -75,66 +70,39 @@ with st.sidebar:
         if st.button("Buat Vector Database dari PDF"):
             create_vector_db_from_pdf(pdf_input_from_user)
 
-# Initialize session state for chat history and message limit
-if 'chat_history' not in st.session_state:
-    st.session_state.chat_history = []
+if "messages" not in st.session_state:
+    st.session_state.messages = []
 
 if "max_messages" not in st.session_state:
-    # Counting both user and assistant messages, so 10 rounds of conversation
     st.session_state.max_messages = 20
 
-# Display chat history
-chat_container = st.container()
-with chat_container:
-    for speaker, text in st.session_state.chat_history:
-        alignment = "flex-end" if speaker == "Anda" else "flex-start"
-        bg_color = "#DCF8C6" if speaker == "Anda" else "#EAEAEA"
-        st.markdown(
-            f"""
-            <div style='display: flex; flex-direction: column; align-items: {alignment};'>
-                <div style='background-color: {bg_color}; padding: 10px; border-radius: 10px; margin: 5px; max-width: 70%;'>
-                    {text}
-                </div>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
 
-# Check if message limit is reached
-if len(st.session_state.chat_history) >= st.session_state.max_messages:
+if len(st.session_state.messages) >= st.session_state.max_messages:
     st.info(
-        """Notice: The maximum message limit for this demo version has been reached. We value your interest!
-        We encourage you to experience further interactions by building your own application with instructions
-        from Streamlit's [Build a basic LLM chat app](https://docs.streamlit.io/develop/tutorials/llms/build-conversational-apps)
-        tutorial. Thank you for your understanding."""
+        """Notice: Batas maksimum percakapan telah tercapai. Silakan coba lagi nanti."""
     )
 else:
-    # User input
-    if prompt := st.chat_input("Ketik pesan..."):
-        st.session_state.chat_history.append(("Anda", prompt))
-        
+    if user_input := st.chat_input("Ketik pesan..."):
+        st.session_state.messages.append({"role": "user", "content": user_input})
         with st.chat_message("user"):
-            st.markdown(prompt)
-
+            st.markdown(user_input)
+        
         with st.chat_message("assistant"):
             try:
                 if "vector_store" in st.session_state:
                     document_chain = create_stuff_documents_chain(llm, pdf_prompt)
                     retriever = st.session_state.vector_store.as_retriever()
                     retrieval_chain = create_retrieval_chain(retriever, document_chain)
-                    response = retrieval_chain.invoke({'input': prompt})
+                    response = retrieval_chain.invoke({'input': user_input})
                     answer = response.get('answer', "Maaf, saya tidak dapat menemukan jawaban.")
                 else:
-                    response = llm.invoke(travel_prompt.format(input=prompt))
+                    response = llm.invoke(travel_prompt.format(input=user_input))
                     answer = response.content if response else "Maaf, saya tidak bisa menjawab pertanyaan Anda."
-                
-                st.markdown(answer)
-                st.session_state.chat_history.append(("Bot", answer))
             except Exception as e:
-                st.session_state.max_messages = len(st.session_state.chat_history)
-                rate_limit_message = """
-                    Oops! Maaf, saya tidak bisa berbicara sekarang. Terlalu banyak orang yang menggunakan
-                    layanan ini baru-baru ini.
-                """
-                st.session_state.chat_history.append(("Bot", rate_limit_message))
-                st.rerun()
+                answer = f"Terjadi kesalahan: {e}"
+            
+            st.markdown(answer)
+            st.session_state.messages.append({"role": "assistant", "content": answer})
