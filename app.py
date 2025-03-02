@@ -20,9 +20,9 @@ groq_api_key = os.getenv('GROQ_API_KEY')
 st.title("Aplikasi Rekomendasi Wisata & Q&A PDF")
 with st.expander("ℹ️ Disclaimer"):
     st.caption(
-        """Kami menghargai keterlibatan Anda! Harap dicatat, aplikasi ini dirancang untuk
-        memproses maksimum 10 interaksi dan mungkin tidak tersedia jika terlalu banyak
-        orang menggunakan layanan secara bersamaan. Terima kasih atas pengertian Anda.
+        """We appreciate your engagement! Please note, this demo is designed to
+        process a maximum of 10 interactions and may be unavailable if too many
+        people use the service concurrently. Thank you for your understanding.
         """
     )
 
@@ -77,11 +77,12 @@ with st.sidebar:
 if 'chat_history' not in st.session_state:
     st.session_state.chat_history = []
 
-if len(st.session_state.chat_history) >= 20:  # Limit to 20 messages
+if len(st.session_state.chat_history) >= 10:
     st.info(
-        """Pemberitahuan: Batas maksimum interaksi untuk versi demo ini telah tercapai. 
-        Kami menghargai minat Anda! Kami mendorong Anda untuk mengalami interaksi lebih lanjut 
-        dengan membangun aplikasi Anda sendiri."""
+        """Notice: The maximum message limit for this demo version has been reached. We value your interest!
+        We encourage you to experience further interactions by building your own application with instructions
+        from Streamlit's [Build a basic LLM chat app](https://docs.streamlit.io/develop/tutorials/llms/build-conversational-apps)
+        tutorial. Thank you for your understanding."""
     )
 else:
     chat_container = st.container()
