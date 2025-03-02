@@ -81,29 +81,31 @@ for msg in st.session_state.messages:
     else:
         st.chat_message("🗿").write(msg["content"])
 
-# User input area
-if prompt := st.chat_input("Ketik pesan..."):
-    # Append user message to chat history
-    st.session_state.messages.append({"role": "user", "content": prompt})
-    st.chat_message("🙂").write(prompt)
+# User input area using text_input
+user_input = st.text_input("Ketik pesan...")
+if st.button("Kirim"):
+    if user_input:
+        # Append user message to chat history
+        st.session_state.messages.append({"role": "user", "content": user_input})
+        st.chat_message("🙂").write(user_input)
 
-    # Fetch response from Groq API
-    try:
-        if "vector_store" in st.session_state:
-            document_chain = create_stuff_documents_chain(llm, pdf_prompt)
-            retriever = st.session_state.vector_store.as_retriever()
-            retrieval_chain = create_retrieval_chain(retriever, document_chain)
-            response = retrieval_chain.invoke({'input': prompt})
-            answer = response.get('answer', "Maaf, saya tidak dapat menemukan jawaban.")
-        else:
-            response = llm.invoke(travel_prompt.format(input=prompt))
-            answer = response.content if response else "Maaf, saya tidak bisa menjawab pertanyaan Anda."
-    except Exception as e:
-        answer = f"Terjadi kesalahan: {e}"
+        # Fetch response from Groq API
+        try:
+            if "vector_store" in st.session_state:
+                document_chain = create_stuff_documents_chain(llm, pdf_prompt)
+                retriever = st.session_state.vector_store.as_retriever()
+                retrieval_chain = create_retrieval_chain(retriever, document_chain)
+                response = retrieval_chain.invoke({'input': user_input})
+                answer = response.get('answer', "Maaf, saya tidak dapat menemukan jawaban.")
+            else:
+                response = llm.invoke(travel_prompt.format(input=user_input))
+                answer = response.content if response else "Maaf, saya tidak bisa menjawab pertanyaan Anda."
+        except Exception as e:
+            answer = f"Terjadi kesalahan: {e}"
 
-    # Append assistant message to chat history
-    st.session_state.messages.append({"role": "assistant", "content": answer})
-    st.chat_message("🗿").write(answer)
+        # Append assistant message to chat history
+        st.session_state.messages.append({"role": "assistant", "content": answer})
+        st.chat_message("🗿").write(answer)
 
 # Button to copy conversation text
 if st.button("Salin Teks"):
