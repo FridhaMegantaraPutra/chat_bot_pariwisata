@@ -10,14 +10,23 @@ from langchain_community.vectorstores import FAISS
 from langchain_community.document_loaders import PyPDFLoader
 from dotenv import load_dotenv
 import tempfile
+from PIL import Image
 
 # Load environment variables
 load_dotenv()
-
 groq_api_key = os.getenv('GROQ_API_KEY')
 
 # Streamlit app title
+st.set_page_config(layout="wide")
 st.title("Aplikasi Rekomendasi Wisata & Q&A PDF")
+st.caption("🚀 Selamat datang! Anda dapat bertanya tentang rekomendasi wisata dan PDF.")
+
+# Load image from file
+img = Image.open("weebsu.png")
+new_size = (150, 150)
+img = img.resize(new_size)
+st.image(img)
+
 with st.expander("ℹ️ Disclaimer"):
     st.caption(
         """We appreciate your engagement! Please note, this demo is designed to
@@ -85,41 +94,22 @@ if len(st.session_state.chat_history) >= 10:
         tutorial. Thank you for your understanding."""
     )
 else:
-    chat_container = st.container()
-    with chat_container:
-        for speaker, text in st.session_state.chat_history:
-            alignment = "flex-end" if speaker == "Anda" else "flex-start"
-            bg_color = "#DCF8C6" if speaker == "Anda" else "#EAEAEA"
-            st.markdown(
-                f"""
-                <div style='display: flex; flex-direction: column; align-items: {alignment};'>
-                    <div style='background-color: {bg_color}; padding: 10px; border-radius: 10px; margin: 5px; max-width: 70%;'>
-                        {text}
-                    </div>
+    # Display chat history
+    for speaker, text in st.session_state.chat_history:
+        alignment = "flex-end" if speaker == "Anda" else "flex-start"
+        bg_color = "#DCF8C6" if speaker == "Anda" else "#EAEAEA"
+        st.markdown(
+            f"""
+            <div style='display: flex; flex-direction: column; align-items: {alignment};'>
+                <div style='background-color: {bg_color}; padding: 10px; border-radius: 10px; margin: 5px; max-width: 70%;'>
+                    {text}
                 </div>
-                """,
-                unsafe_allow_html=True
-            )
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
 
-    # Fixed input box at the bottom
-    st.markdown(
-        """
-        <style>
-        .fixed-input {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            background-color: white;
-            padding: 10px;
-            box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.1);
-            z-index: 1000;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True
-    )
-
+    # Input box for user messages
     user_input = st.text_input("Ketik pesan...", key="user_input", placeholder="Tulis pesan di sini...")
     if st.button("Kirim"):
         if user_input:
@@ -139,3 +129,26 @@ else:
             st.session_state.chat_history.append(("Anda", user_input))
             st.session_state.chat_history.append(("Bot", answer))
             st.experimental_rerun()
+
+    # Button to copy conversation text
+    if st.button("Salin Percakapan"):
+        conversation_text = "\n".join(
+            f"🙂: {msg[1]}" if msg[0] == "Anda" else f"🗿: {msg[1]}"
+            for msg in st.session_state.chat_history
+        )
+
+        # JavaScript for copying text to clipboard
+        st.components.v1.html(f"""
+        <textarea id="conversation-text" style="display:none;">{conversation_text}</textarea>
+        <button onclick="copyToClipboard()">Salin Teks</button>
+        <script>
+        function copyToClipboard() {{
+            var copyText = document.getElementById("conversation-text");
+            copyText.style.display = "block";
+            copyText.select();
+            document.execCommand("copy");
+            copyText.style.display = "none";
+            alert("Percakapan telah disalin sebagai teks!");
+        }}
+        </script>
+        """)
