@@ -10,7 +10,6 @@ from langchain_community.vectorstores import FAISS
 from langchain_community.document_loaders import PyPDFLoader
 from dotenv import load_dotenv
 import tempfile
-from PIL import Image
 
 # Load environment variables
 load_dotenv()
@@ -20,12 +19,6 @@ groq_api_key = os.getenv('GROQ_API_KEY')
 st.set_page_config(layout="wide")
 st.title("Aplikasi Rekomendasi Wisata & Q&A PDF")
 st.caption("🚀 Selamat datang! Anda dapat bertanya tentang rekomendasi wisata dan PDF.")
-
-# Load image from file
-img = Image.open("weebsu.png")
-new_size = (150, 150)
-img = img.resize(new_size)
-st.image(img)
 
 with st.expander("ℹ️ Disclaimer"):
     st.caption(
