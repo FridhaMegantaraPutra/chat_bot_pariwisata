@@ -22,6 +22,7 @@ st.markdown("<h2 style='text-align: center;'>Aplikasi Rekomendasi Wisata & Q&A P
 # Initialize Groq LLM
 llm = ChatGroq(groq_api_key=groq_api_key, model_name="Llama3-8b-8192")
 
+# Define prompts
 pdf_prompt = ChatPromptTemplate.from_template(
     """
     Jawab pertanyaan berdasarkan konteks yang diberikan.
@@ -42,6 +43,7 @@ travel_prompt = ChatPromptTemplate.from_template(
     """
 )
 
+# Function to create vector database from PDF
 def create_vector_db_from_pdf(pdf_file):
     if "vector_store" not in st.session_state:
         with tempfile.NamedTemporaryFile(delete=False) as temp_file:
@@ -60,6 +62,7 @@ def create_vector_db_from_pdf(pdf_file):
         st.session_state.vector_store = FAISS.from_documents(document_chunks, embeddings)
         st.success("Vector Database untuk PDF ini siap digunakan!")
 
+# Sidebar for PDF upload
 with st.sidebar:
     st.header("Unggah PDF")
     pdf_input_from_user = st.file_uploader("Unggah file PDF", type=['pdf'])
@@ -67,9 +70,11 @@ with st.sidebar:
         if st.button("Buat Vector Database dari PDF"):
             create_vector_db_from_pdf(pdf_input_from_user)
 
+# Initialize chat history
 if 'chat_history' not in st.session_state:
     st.session_state.chat_history = []
 
+# Display chat history
 chat_container = st.container()
 with chat_container:
     for speaker, text in st.session_state.chat_history:
@@ -86,7 +91,8 @@ with chat_container:
             unsafe_allow_html=True
         )
 
-user_input = st.text_input("Ketik pesan...")
+# User input area
+user_input = st.text_area("Ketik pesan...", height=100)  # Area input yang tidak ter-scroll
 if st.button("Kirim"):
     if user_input:
         try:
@@ -102,6 +108,7 @@ if st.button("Kirim"):
         except Exception as e:
             answer = f"Terjadi kesalahan: {e}"
         
+        # Update chat history
         st.session_state.chat_history.append(("Anda", user_input))
         st.session_state.chat_history.append(("Bot", answer))
         st.experimental_rerun()
